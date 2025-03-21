@@ -1,0 +1,24 @@
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:latest-v25.1
+    command: [ "start-single-node", "--insecure"]
+    container_name: cockroachdb
+    ports:
+      - 26257:26257
+
+  postgres:
+    build:
+      context: ${PG_CONTAINER_BUILD_CONTEXT:-docker/postgres17}
+    user: postgres
+    environment:
+      POSTGRES_DB: terraform_test
+      POSTGRES_USER: terraform
+      POSTGRES_PASSWORD: not_a_real_password
+    command: [ "postgres", "-c", "shared_preload_libraries=pgaudit" ]
+    ports:
+      - 15432:5432
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "terraform", "-d", "terraform_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
