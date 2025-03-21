@@ -9,7 +9,7 @@ This Terraform provider is used to manage PostgreSQL objects.
 - [podman](https://golang.org/doc/install) >= 5.25
     * On MacOS: Install from https://podman.io/
     * On Ubuntu: `apt-get install -y podman`
-- [podman-compose](https://golang.org/doc/install) >= 1.2.0
+- [podman-compose](https://golang.org/doc/install) >= 1.3.0
     * On MacOS: `brew install podman-compose`
     * On Ubuntu: `apt-get install -y python3-pip` then `pip3 install podman-compose`
 
