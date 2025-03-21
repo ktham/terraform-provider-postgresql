@@ -26,9 +26,8 @@ type PostgresqlProvider struct {
 }
 
 type PostgresqlProviderData struct {
-	DbPool    *pgxpool.Pool
-	DbType    string
-	DbVersion string
+	DbPool          *pgxpool.Pool
+	PostgresVersion string
 }
 
 type PostgresqlProviderModel struct {
@@ -171,8 +170,8 @@ func (p *PostgresqlProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	var version string
-	err = dbConnPool.QueryRow(context.Background(), "SELECT VERSION();").Scan(&version)
+	var versionRaw string
+	err = dbConnPool.QueryRow(context.Background(), "SELECT VERSION();").Scan(&versionRaw)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Unable to determine database version/type.",
@@ -181,7 +180,7 @@ func (p *PostgresqlProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	parsedVersion, err := postgresql.ParseDbVersion(version)
+	postgresVersion, err := postgresql.ParsePostgresVersion(versionRaw)
 
 	// TODO: Gracefully handle - avoid failure if database vendor decides to change version string format in a way
 	// that we currently don't support parsing for yet.
@@ -194,9 +193,8 @@ func (p *PostgresqlProvider) Configure(ctx context.Context, req provider.Configu
 	}
 
 	providerData := PostgresqlProviderData{
-		DbPool:    dbConnPool,
-		DbType:    parsedVersion.DbType,
-		DbVersion: parsedVersion.DbVersion,
+		DbPool:          dbConnPool,
+		PostgresVersion: postgresVersion,
 	}
 
 	resp.DataSourceData = providerData

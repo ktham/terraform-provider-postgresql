@@ -12,31 +12,48 @@ func TestAccRoleResource(t *testing.T) {
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Create and Read testing
+			// Test role creation
 			{
-				Config: providerConfig + testAccRoleResourceConfig("role1"),
-				Check:  resource.ComposeAggregateTestCheckFunc(
-				// TODO: Implement
-				// resource.TestCheckResourceAttr("postgresql_role.test", "name", "role1"),
+				Config: providerConfig() + testAccRoleResourceConfig("role1", true, 10),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("postgresql_role.test", "name", "role1"),
+					resource.TestCheckResourceAttr("postgresql_role.test", "can_login", "true"),
+					resource.TestCheckResourceAttr("postgresql_role.test", "connection_limit", "10"),
 				),
 			},
-			// Update and Read testing
+			// Test role update
 			{
-				Config: providerConfig + testAccRoleResourceConfig("role2"),
-				Check:  resource.ComposeAggregateTestCheckFunc(
-				// TODO: Implement
-				// resource.TestCheckResourceAttr("postgresql_role.test", "name", "role2"),
+				Config: providerConfig() + testAccRoleResourceConfig("role1", false, 15),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("postgresql_role.test", "name", "role1"),
+					resource.TestCheckResourceAttr("postgresql_role.test", "can_login", "false"),
+					resource.TestCheckResourceAttr("postgresql_role.test", "connection_limit", "15"),
+				),
+			},
+			// Test role re-name
+			{
+				Config: providerConfig() + testAccRoleResourceConfig("role2", false, 15),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("postgresql_role.test", "name", "role2"),
+					resource.TestCheckResourceAttr("postgresql_role.test", "can_login", "false"),
+					resource.TestCheckResourceAttr("postgresql_role.test", "connection_limit", "15"),
 				),
 			},
 		},
 	})
 }
 
-func testAccRoleResourceConfig(name string) string {
+func testAccRoleResourceConfig(name string, canLogin bool, connectionLimit int32) string {
 	return fmt.Sprintf(`
 resource "postgresql_role" "test" {
-  # TODO:
-  # name = %[1]q
+  name                      = %[1]q
+  bypass_row_level_security = true
+  can_login                 = %t
+  connection_limit          = %d
+  create_role               = true
+  inherit                   = true
+  replication               = true
+  superuser                 = true
 }
-`, name)
+`, name, canLogin, connectionLimit)
 }
