@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -16,6 +17,7 @@ func NewRoleResource() resource.Resource {
 }
 
 type RoleResource struct {
+	data PostgresqlProviderData
 }
 
 type RoleResourceModel struct {
@@ -41,7 +43,18 @@ func (r *RoleResource) Configure(ctx context.Context, req resource.ConfigureRequ
 		return
 	}
 
-	// TODO: Implement
+	data, ok := req.ProviderData.(PostgresqlProviderData)
+
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected PostgresqlProviderData, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+
+		return
+	}
+
+	r.data = data
 }
 
 func (r *RoleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
