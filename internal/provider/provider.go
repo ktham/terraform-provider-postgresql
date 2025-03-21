@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int32validator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -10,6 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/ktham/terraform-provider-postgresql/internal/postgresql"
 )
 
 var _ provider.Provider = &PostgresqlProvider{}
@@ -19,6 +23,12 @@ type PostgresqlProvider struct {
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
+}
+
+type PostgresqlProviderData struct {
+	DbPool    *pgxpool.Pool
+	DbType    string
+	DbVersion string
 }
 
 type PostgresqlProviderModel struct {
@@ -122,8 +132,75 @@ func (p *PostgresqlProvider) Configure(ctx context.Context, req provider.Configu
 		)
 	}
 
-	resp.DataSourceData = nil // TODO
-	resp.ResourceData = nil   // TODO
+	dbName := "postgres"
+	dbPort := int32(5432)
+	dbUserPass := "postgres"
+
+	if !config.DatabaseName.IsNull() {
+		dbName = config.DatabaseName.ValueString()
+	}
+	if !config.Port.IsNull() {
+		dbPort = config.Port.ValueInt32()
+	}
+
+	if !config.Username.IsNull() && !config.Password.IsNull() {
+		dbUserPass = fmt.Sprintf("%s:%s", config.Username.ValueString(), config.Password.ValueString())
+	}
+
+	if !config.Username.IsNull() && config.Password.IsNull() {
+		dbUserPass = config.Username.ValueString()
+	}
+
+	databaseURL := fmt.Sprintf("postgresql://%s@%s:%d/%s",
+		dbUserPass,
+		config.Hostname.ValueString(),
+		dbPort,
+		dbName,
+	)
+
+	tflog.Info(ctx, "Configuring DB Connection Pool")
+	dbConnPool, err := pgxpool.New(context.Background(), databaseURL)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to create DB connection pool",
+			"An unexpected error occurred when creating the DB connection pool. "+
+				"If the error is not clear, please contact the provider developers.\n\n"+
+				"Error: "+err.Error(),
+		)
+		return
+	}
+
+	var version string
+	err = dbConnPool.QueryRow(context.Background(), "SELECT VERSION();").Scan(&version)
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to determine database version/type.",
+			"An unexpected error occurred when running `SELECT VERSION();`, please share this error with the provider developers. Error: "+err.Error(),
+		)
+		return
+	}
+
+	parsedVersion, err := postgresql.ParseDbVersion(version)
+
+	// TODO: Gracefully handle - avoid failure if database vendor decides to change version string format in a way
+	// that we currently don't support parsing for yet.
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Unable to parse results of `SELECT VERSION();` from this database",
+			"An unexpected error occurred when creating the DB connection pool. Error: "+err.Error(),
+		)
+		return
+	}
+
+	providerData := PostgresqlProviderData{
+		DbPool:    dbConnPool,
+		DbType:    parsedVersion.DbType,
+		DbVersion: parsedVersion.DbVersion,
+	}
+
+	resp.DataSourceData = providerData
+	resp.ResourceData = providerData
 }
 
 func (p *PostgresqlProvider) Resources(ctx context.Context) []func() resource.Resource {
