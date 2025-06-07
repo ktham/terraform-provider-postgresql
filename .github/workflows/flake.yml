@@ -1,0 +1,24 @@
+name: "Nix"
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "flake.nix"
+      - "flake.lock"
+
+jobs:
+  check_flake:
+    name: "Check Flake"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout the repo
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Nix
+        uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+
+      - run: nix flake check --all-systems
